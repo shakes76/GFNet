@@ -24,6 +24,8 @@ from samplers import RASampler
 import utils
 from gfnet import GFNet, GFNetPyramid
 
+import wandb_config
+
 import warnings
 warnings.filterwarnings("ignore", message="Argument interpolation should be")
 
@@ -177,6 +179,8 @@ def main(args):
         raise NotImplementedError("Finetuning with distillation not yet supported")
 
     device = torch.device(args.device)
+    
+    wandb_config.setup_wandb()
 
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
@@ -344,6 +348,12 @@ def main(args):
         model.load_state_dict(checkpoint_model, strict=True)
 
     model.to(device)
+    
+    if device.type == 'cuda':
+        for i in range(torch.cuda.device_count()):
+            print(torch.cuda.get_device_name(i))
+        print('Memory Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
+        print('Memory Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')
 
     model_ema = None
     if args.model_ema:
@@ -360,6 +370,7 @@ def main(args):
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
+    wandb_config.wandb.log({"Parameters":n_parameters})
 
     linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
     args.lr = linear_scaled_lr
@@ -493,6 +504,14 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         max_accuracy = max(max_accuracy, test_stats["acc1"])
         print(f'Max accuracy: {max_accuracy:.2f}%')
+        
+        #wandb logging
+        wandb_config.wandb.log({"epoch": epoch})
+        wandb_config.wandb.log({"loss": train_stats["loss"]})
+        wandb_config.wandb.log({"lr": train_stats["lr"]})
+        wandb_config.wandb.log({"test_accuracy": test_stats["acc1"]})
+        wandb_config.wandb.log({"test_accuracy_top5": test_stats["acc5"]})
+        wandb_config.wandb.log({"max_accuracy": max_accuracy})
 
         if max_accuracy == test_stats["acc1"]:
             checkpoint_path = output_dir / 'checkpoint_best.pth'
@@ -528,6 +547,8 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
+    wandb_config.wandb.run.summary["training_time"] = total_time_str
+    wandb_config.wandb.run.finish()
 
 
 if __name__ == '__main__':
