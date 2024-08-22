@@ -370,7 +370,6 @@ def main(args):
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
-    wandb_config.wandb.log({"Parameters":n_parameters})
 
     linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
     args.lr = linear_scaled_lr
@@ -548,6 +547,7 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
     wandb_config.wandb.run.summary["training_time"] = total_time_str
+    wandb_config.wandb.run.summary["Parameters"] = n_parameters
     wandb_config.wandb.run.finish()
 
 
