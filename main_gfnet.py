@@ -506,10 +506,8 @@ def main(args):
         
         #wandb logging
         wandb_config.wandb.log({"epoch": epoch})
-        wandb_config.wandb.log({"loss": train_stats["loss"]})
-        wandb_config.wandb.log({"lr": train_stats["lr"]})
-        wandb_config.wandb.log({"test_accuracy": test_stats["acc1"]})
-        wandb_config.wandb.log({"test_accuracy_top5": test_stats["acc5"]})
+        wandb_config.wandb.log(train_stats)
+        wandb_config.wandb.log(test_stats)
         wandb_config.wandb.log({"max_accuracy": max_accuracy})
 
         if max_accuracy == test_stats["acc1"]:
